@@ -1,10 +1,13 @@
 import argparse
-from pathlib import Path
-
 import pandas as pd
 
-from modelos.config import SALIDAS, PREDICCIONES, SIMULACIONES, N_SIMULACIONES
-from modelos.datos import cargar_partidos, cargar_historico, partidos_de_fecha
+from modelos.config import SALIDAS, PREDICCIONES, N_SIMULACIONES
+from modelos.datos import (
+    cargar_partidos,
+    cargar_historico,
+    cargar_estadisticas_equipos,
+    partidos_de_fecha,
+)
 from modelos.features import construir_features
 from modelos.prediccion import predict_match
 from modelos.aprendizaje import cargar_calibracion, evaluar_fecha, actualizar_memoria
@@ -23,18 +26,25 @@ def main():
 
     partidos = cargar_partidos()
     historico = cargar_historico()
+    raw = cargar_estadisticas_equipos()
     fecha_partidos = partidos_de_fecha(partidos, args.fecha, args.competencia)
 
     if fecha_partidos.empty:
-        raise SystemExit(f"No se encontraron partidos para {args.competencia} Fecha {args.fecha}.")
+        raise SystemExit(
+            f"No se encontraron partidos para {args.competencia} Fecha {args.fecha}."
+        )
 
-    # Corte estricto: ninguna predicción ve partidos del mismo día.
     fecha_real = fecha_partidos["date"].min()
-    history = historico[historico["date"] < fecha_real].copy()
 
-    features = construir_features(fecha_partidos, history)
+    # CORTE ESTRICTO: nada del mismo día entra como histórico.
+    history = historico[historico["date"] < fecha_real].copy()
+    raw_history = raw[raw["date"] < fecha_real].copy()
+
+    features = construir_features(fecha_partidos, history, raw_history)
     if features.empty:
-        raise SystemExit("No hay suficiente histórico para construir las predicciones.")
+        raise SystemExit(
+            "No hay suficiente histórico para construir las predicciones."
+        )
 
     calibration = cargar_calibracion()
     preds = pd.DataFrame([
@@ -44,13 +54,12 @@ def main():
 
     sims = simular_lote(preds, n=args.simulaciones)
 
-    # Guardar snapshot de predicción de esta fecha.
     pred_path = SALIDAS / f"predicciones_{args.competencia.lower()}_{args.fecha:02d}.csv"
     sim_path = SALIDAS / f"simulaciones_{args.competencia.lower()}_{args.fecha:02d}.csv"
+
     preds.to_csv(pred_path, index=False)
     sims.to_csv(sim_path, index=False)
 
-    # También mantenemos un histórico consolidado.
     if PREDICCIONES.exists():
         old = pd.read_csv(PREDICCIONES)
         old = old[~old["match_id"].isin(preds["match_id"])]
@@ -58,9 +67,10 @@ def main():
     else:
         preds.to_csv(PREDICCIONES, index=False)
 
+    aprendido = False
     if not args.sin_aprender:
         evaluacion = evaluar_fecha(preds, fecha_partidos, args.fecha)
-        actualizar_memoria(evaluacion)
+        aprendido = actualizar_memoria(evaluacion)
 
     print("=" * 70)
     print(f"BETO HOOD | {args.competencia} FECHA {args.fecha}")
@@ -68,14 +78,18 @@ def main():
     print(f"PARTIDOS: {len(fecha_partidos)}")
     print(f"HISTÓRICO UTILIZADO HASTA: {fecha_real.date()}")
     print(f"SIMULACIONES POR PARTIDO: {args.simulaciones}")
+    print(f"APRENDIZAJE ACTUALIZADO: {'SI' if aprendido else 'NO'}")
     print()
+
     for _, p in preds.iterrows():
         print(
             f'{p["home_team"]} vs {p["away_team"]} | '
             f'1={p["prob_local_gana"]:.1%} '
             f'X={p["prob_empate"]:.1%} '
-            f'2={p["prob_visitante_gana"]:.1%}'
+            f'2={p["prob_visitante_gana"]:.1%} | '
+            f'xG {p["goles_home_lambda"]:.2f}-{p["goles_away_lambda"]:.2f}'
         )
+
     print()
     print(f"Predicciones: {pred_path}")
     print(f"Simulaciones: {sim_path}")
