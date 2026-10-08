@@ -1,6 +1,7 @@
 import re
 import pandas as pd
-from modelos.config import PARTIDOS, HISTORICO
+
+from modelos.config import PARTIDOS, HISTORICO, ESTADISTICAS_EQUIPOS
 
 
 def cargar_partidos():
@@ -11,6 +12,12 @@ def cargar_partidos():
 
 def cargar_historico():
     df = pd.read_csv(HISTORICO)
+    df["date"] = pd.to_datetime(df["date"])
+    return df.sort_values(["date", "match_id"]).reset_index(drop=True)
+
+
+def cargar_estadisticas_equipos():
+    df = pd.read_csv(ESTADISTICAS_EQUIPOS)
     df["date"] = pd.to_datetime(df["date"])
     return df.sort_values(["date", "match_id"]).reset_index(drop=True)
 
@@ -50,5 +57,4 @@ def partidos_de_fecha(df, fecha, competencia="Clausura"):
 
 
 def historico_anterior(df_historico, fecha):
-    # La fecha se identifica por su fecha calendario mínima.
     return df_historico[df_historico["date"] < pd.Timestamp(fecha)].copy()
