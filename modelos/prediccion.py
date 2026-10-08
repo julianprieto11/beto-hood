@@ -54,6 +54,13 @@ def predict_match(row, calibration=None):
     ap = poisson_pmf(rates["goles"][1], ag)
     matrix = np.outer(hp, ap)
 
+    # La matriz está truncada en 0..11 goles. Normalizamos para que
+    # las probabilidades 1X2 sumen exactamente 1.
+    matrix_sum = matrix.sum()
+    if matrix_sum <= 0:
+        matrix_sum = 1.0
+    matrix = matrix / matrix_sum
+
     # Filas = goles local, columnas = goles visitante.
     out["prob_local_gana"] = float(np.tril(matrix, -1).sum())
     out["prob_empate"] = float(np.trace(matrix))
