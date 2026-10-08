@@ -1,6 +1,12 @@
 import argparse
-import json
+import sys
 from pathlib import Path
+
+# Permite ejecutar este archivo directamente desde scripts\\validar_modelo.py
+# sin depender de PYTHONPATH.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import numpy as np
 import pandas as pd
@@ -9,7 +15,7 @@ from modelos.config import PARTIDOS, ESTADISTICAS_EQUIPOS, HISTORICO
 from modelos.datos import cargar_partidos, cargar_historico, cargar_estadisticas_equipos, partidos_de_fecha
 from modelos.features import construir_features
 from modelos.prediccion import predict_match
-from modelos.simulacion.motor import simular_lote
+from simulacion.motor import simular_lote
 
 
 def check(ok, msg):
@@ -25,7 +31,10 @@ def main():
     failures = 0
 
     for path in (PARTIDOS, ESTADISTICAS_EQUIPOS, HISTORICO):
-        failures += not check(path.exists(), f"existe {path.relative_to(Path.cwd()) if path.is_absolute() else path}")
+        failures += not check(
+            path.exists(),
+            f"existe {path.relative_to(Path.cwd()) if path.is_absolute() else path}",
+        )
 
     if failures:
         raise SystemExit(1)
@@ -70,7 +79,10 @@ def main():
         failures += not check(same_day_raw == 0, "estadisticas no usan datos del mismo dia")
 
         features = construir_features(fecha_partidos, history, raw_history)
-        failures += not check(len(features) == len(fecha_partidos), f"features completas ({len(features)}/{len(fecha_partidos)})")
+        failures += not check(
+            len(features) == len(fecha_partidos),
+            f"features completas ({len(features)}/{len(fecha_partidos)})",
+        )
 
         if not features.empty:
             preds = pd.DataFrame([predict_match(row, {}) for _, row in features.iterrows()])
