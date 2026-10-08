@@ -10,7 +10,7 @@ from modelos.datos import (
 from modelos.features import construir_features
 from modelos.prediccion import predict_match
 from modelos.aprendizaje import cargar_calibracion, evaluar_fecha, actualizar_memoria
-from modelos.config import SALIDAS
+from modelos.config import SALIDAS, ERRORES, CALIBRACION, ESTADO
 
 
 def main():
@@ -20,7 +20,18 @@ def main():
     parser.add_argument("--desde", type=int, default=1)
     parser.add_argument("--hasta", type=int, required=True)
     parser.add_argument("--aprender", action="store_true")
+    parser.add_argument(
+        "--reiniciar-memoria",
+        action="store_true",
+        help="Borra la memoria de aprendizaje antes de comenzar el backtest.",
+    )
     args = parser.parse_args()
+
+    if args.reiniciar_memoria:
+        for path in (ERRORES, CALIBRACION, ESTADO):
+            if path.exists():
+                path.unlink()
+        print("MEMORIA DE APRENDIZAJE REINICIADA.")
 
     partidos = cargar_partidos()
     historico = cargar_historico()
