@@ -73,11 +73,19 @@ python ejecutar_fecha.py 12 --simulaciones 100000
 
 Por defecto la competencia es Clausura.
 
-Para backtest cronológico:
+Para validar estructura, predicción, simulación y anti-leakage:
 
 ```bash
-python backtest/backtest.py --hasta 10 --aprender
+python scripts/validar_modelo.py --fecha 1
 ```
+
+Para backtest cronológico limpio, sin contaminarlo con memoria previa:
+
+```bash
+python backtest/backtest.py --hasta 11 --aprender --reiniciar-memoria
+```
+
+El flag `--reiniciar-memoria` solo se usa para una evaluación histórica limpia. Para el funcionamiento normal fecha a fecha, no se debe usar.
 
 ## Próximas capas
 
